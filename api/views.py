@@ -1,5 +1,5 @@
 from django.contrib.auth.models import User
-from rest_framework import viewsets
+from rest_framework import viewsets, exceptions
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from api.serializers import UserSerializer, QuizSerializer, ImageSerializer
@@ -28,8 +28,8 @@ class CurrentUserView(generics.GenericAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, req, *args, **kwargs):
-        u_ser = UserSerializer(instance=req.user)
-        return Response(u_ser.data)
+        user = UserSerializer(instance=req.user)
+        return Response(user.data)
 
 
 class QuizList(generics.ListCreateAPIView):
@@ -41,7 +41,16 @@ class QuizList(generics.ListCreateAPIView):
         return Quiz.objects.filter(creator_id=self.request.user.id)
 
     def perform_create(self, serializer):
-        serializer.save(creator=self.request.user)
+        sheet_name = self.request.data['sheet_name']
+        sheet_exists = False
+        try:
+            Quiz.objects.get(sheet_name=sheet_name)
+            sheet_exists = True
+        except Quiz.DoesNotExist:
+            serializer.save(creator=self.request.user)
+        finally:
+            if sheet_exists:
+                raise exceptions.ValidationError({'error': "A sheet with this name already exists"}, code=400)
 
 
 class QuizDetail(generics.RetrieveUpdateDestroyAPIView):

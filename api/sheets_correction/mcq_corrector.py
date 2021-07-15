@@ -23,17 +23,49 @@ class MCQCorrector:
         self.image_height = image_height
         self.correction_index = 0  # represents the number of sheets which have been corrected
 
-    '''This function converts the list of correct answers into another list which maps these values to integer values'''
+        self.correspondence_dict = {'A': 0, 'B': 1, 'C': 2, 'D': 3, 'E': 4, 'i': 0, 'ii': 1, 'iii': 2, 'iv': 3, 'v': 4,
+                                    '1': 0, '2': 3, '3': 2, '4': 3, '5': 4}
+
+        '''This function converts the list of correct answers into a map which matches these values to integer values'''
+
     def get_int_answer_values(self):
-        correspondence_dict = {'A': 0, 'B': 1, 'C': 2, 'D': 3, 'E': 4, 'i': 0, 'ii': 1, 'iii': 2, 'iv': 3, 'v': 4,
-                               '1': 0, '2': 3, '3': 2, '4': 3, '5': 4}
+
         int_answer_values = []
         correct_answers = self.sheet_instance.correctAnswers
 
+        # we split the joint answers into arrays
         for ans in correct_answers:
-            int_answer_values.append(correspondence_dict[ans])
+            ans_parts = ans.split(" ")
+            int_answer_values.append([self.correspondence_dict[val] for val in ans_parts])
 
+        # we return an array containing arrays of values e.g [[0,1,2], [0], [1,2]]
         return int_answer_values
+
+    # This function takes the markDistribution strings list and converts it to a list of maps suitable for processing
+    def extract_mark_distribution(self):
+        mark_distribution = self.sheet_instance.marksDistribution
+        final_distribution = []
+
+        for dist in mark_distribution:
+            dist_map = {}
+            dist_splitted = dist.split(";")
+            for val in dist_splitted:
+                ans = val.split(" ")[0]
+                percentage = val.split(" ")[1]
+                dist_map[str(self.correspondence_dict[ans])] = percentage
+
+            final_distribution.append(dist_map)
+
+        return final_distribution  # sample result [{'1': '70', '0': '30'}, {'0': '100'}]
+
+    def get_answer_label_from_number(self, number):
+        choice_label = self.sheet_instance.choiceLabels
+        if choice_label == "A-B-C":
+            return 'ABCDE'[number]
+        elif choice_label == 'i-ii-iii':
+            return ['i', 'ii', 'iii', 'iv', 'v'][number]
+        else:
+            return '12345'[number]
 
     def correct_sheet(self, image_path):
 
@@ -97,43 +129,43 @@ class MCQCorrector:
         # We obtain all the rectangular contours and get the largest which represents the largest rectangle on our paper
         rect_con = rectContours(contours)
 
-
         # if our sheet has two parts, then the second biggest rectangle is our answers rectangle
-        # and the third biggest is the student name rectangle
-        # the 4th and 5th are the registration number and student code rectangles
+        # and the third biggest is the sheet code rectangle
+
         if is_two_parts:
             biggest_contour = getCornerPoints(rect_con[1])  # left-most big rectangle
             biggest_contour2 = getCornerPoints(rect_con[0])  # right-most big rectangle
-            student_name = getCornerPoints(rect_con[2])
-            registration_number = getCornerPoints(rect_con[3], epsilon=0.034)
-            student_code = getCornerPoints(rect_con[4])
+            # student_name = getCornerPoints(rect_con[2])
+            # registration_number = getCornerPoints(rect_con[3], epsilon=0.034)
+            student_code = getCornerPoints(rect_con[2])
 
         else:
             biggest_contour2 = None
             biggest_contour = getCornerPoints(rect_con[0])  # left-most big rectangle
-            student_name = getCornerPoints(rect_con[1])
-            registration_number = getCornerPoints(rect_con[2])
-            student_code = getCornerPoints(rect_con[3])
+            # student_name = getCornerPoints(rect_con[1])
+            # registration_number = getCornerPoints(rect_con[2])
+            student_code = getCornerPoints(rect_con[1])
 
         # we now show the draw those two biggest contours on our image
 
-        if biggest_contour.size != 0 and student_name.size != 0 and\
-                registration_number.size != 0 and student_code.size != 0:
+        if biggest_contour.size != 0 and student_code.size != 0:
 
             cv2.drawContours(cont_image, [biggest_contour], -1, (255, 0, 0), 8)
             if biggest_contour2 is not None:
                 cv2.drawContours(cont_image, [biggest_contour2], -1, (0, 255, 255), 6)
 
-            cv2.drawContours(cont_image, [student_name, registration_number, student_code], -1, (0, 255, 255), 5)
+            cv2.drawContours(cont_image, [student_code], -1, (0, 255, 255), 5)
+            # cv2.imshow('images', cont_image)
+            # cv2.waitKey(0)
 
             # we reorder the points of the big rectangles and the code and student name rectangles
             biggest_contour = reorder(biggest_contour)
             if biggest_contour2 is not None:
                 biggest_contour2 = reorder(biggest_contour2)
-            student_name = reorder(student_name)
+            # student_name = reorder(student_name)
             # print("reg number shape:{}".format(registration_number.shape))
 
-            registration_number = reorder(registration_number)
+            # registration_number = reorder(registration_number)
             student_code = reorder(student_code)
 
             # we apply a warpPerspective to get a bird's eye view of the specific contours we need
@@ -193,46 +225,106 @@ class MCQCorrector:
 
             given_answers_indexes1 = []
 
+            # we pass through each row and check for the boxes with pixel values above a certain threshold
+            # (1800 in this case)
             for row in pixel_values:
-                given_index = np.where(row == np.amax(row))
-                given_answers_indexes1.append(given_index[0][0])
+                current_indexes = []
+                for i in range(0, len(row)):
+                    if row[i] > 1800:  # TODO adjust threshold value later
+                        current_indexes.append(i)
+                # given_index = np.where(row == np.amax(row))
+                given_answers_indexes1.append(current_indexes)
+
+            # print("given indexes are ", str(given_answers_indexes1))
 
             if biggest_contour2 is not None:
                 given_answers_indexes2 = []
 
                 for row in pixel_values2:
-                    given_index = np.where(row == np.amax(row))
-                    given_answers_indexes2.append(given_index[0][0])
+                    current_indexes = []
+                    for i in range(0, len(row)):
+                        if row[i] > 1800:  # TODO adjust threshold value later
+                            current_indexes.append(i)
+                    # given_index = np.where(row == np.amax(row))
+                    given_answers_indexes2.append(current_indexes)
 
             # Now we grade the questions
             # by comparing the givenAnswers indexes and the correct answers indexes defined above
-            # we equally assign mark according to mark allocation each question
+            # we equally assign mark according to mark allocation and mark distribution for each question
+            # for failed questions we subtract the fail_mark
 
-            mark_allocation = [int(mk) for mk in self.sheet_instance.marksAllocation]
+            mark_allocation = [float(mk) for mk in self.sheet_instance.marksAllocation]
+            mark_distribution = self.extract_mark_distribution()
+            fail_mark = float(self.sheet_instance.failMark)
             result_summary = {}
 
             grading1 = []
 
             for i in range(0, body_rows_1):
-                if answers1[i] == given_answers_indexes1[i]:
-                    grading1.append(mark_allocation[i]*1)
-                    result_summary[str(i + 1)] = mark_allocation[i] * 1
+                points_percentage = 0.0
+                result_summary[i] = {'correct_choices': [], 'wrong_choices': [], 'percentage_pass': 0.0, 'mark': 0.0}
+                # we evaluate the total % of the points for the given question which has been answered correctly
+                for ans in given_answers_indexes1[i]:
+                    if ans in answers1[i]:
+                        points_percentage += float(mark_distribution[i][str(ans)])
+                        result_summary[i]["correct_choices"].append(self.get_answer_label_from_number(ans))
+                    else:
+                        points_percentage = 0.0
+                        result_summary[i]["wrong_choices"].append(self.get_answer_label_from_number(ans))
+
+                # if atleast one correct answer is given, we calculate the points obtained by multiplying the fraction
+                # of points obtained by the mark allocated to that question, else we subtract the fail mark from the
+                # final grading
+                final_question_points = 0.0
+                if points_percentage > 0:
+                    points_total_percentage = 0.0
+                    for pc in mark_distribution[i].values():
+                        if i == 1:
+                            print(pc)
+                        points_total_percentage += float(pc)
+
+                    points_frac = points_percentage / points_total_percentage
+                    final_question_points = points_frac * mark_allocation[i]
+                    result_summary[i]["percentage_pass"] = points_frac * 100
 
                 else:
-                    grading1.append(0)
-                    result_summary[str(i + 1)] = 0
+                    final_question_points -= fail_mark
 
+                result_summary[i]["mark"] = final_question_points
+                grading1.append(final_question_points)
+
+            # we repeat the same exercise for the second sheet body
             if biggest_contour2 is not None:
                 grading2 = []
 
                 for i in range(0, body_rows_2):
-                    if answers2[i] == given_answers_indexes2[i]:
-                        grading2.append(mark_allocation[25+i]*1)
-                        result_summary[str(i+1+25)] = mark_allocation[25+i]*1
+                    points_percentage = 0.0
+                    # we evaluate the total % of the points for the given question which has been answered correctly
+                    for ans in given_answers_indexes2[i]:
+                        if ans in answers2[i]:
+                            points_percentage += float(mark_distribution[25 + i][str(ans)])
+                            result_summary[25 + i]["correct_choices"].append(self.get_answer_label_from_number(ans))
+                        else:
+                            points_percentage = 0.0
+                            result_summary[25 + i]["wrong_choices"].append(self.get_answer_label_from_number(ans))
+
+                    final_question_points = 0.0
+                    if points_percentage > 0:
+                        points_total_percentage = 0.0
+                        for pc in mark_distribution[25 + i].values():
+                            points_total_percentage += float(pc)
+
+                        points_frac = points_percentage / points_total_percentage
+                        final_question_points = points_frac * mark_allocation[25 + i]
+                        result_summary[25 + i]["percentage_pass"] = points_frac * 100
                     else:
-                        grading2.append(0)
-                        result_summary[str(i+1+25)] = 0
-            # we then find the score of the student
+                        final_question_points -= fail_mark
+
+                    result_summary[25 + i]["mark"] = final_question_points
+
+                    grading2.append(final_question_points)
+
+            # we then find the total score of the student
 
             if biggest_contour2 is not None:
                 score = sum(grading1) + sum(grading2)
@@ -241,24 +333,21 @@ class MCQCorrector:
                 score = np.sum(grading1)
 
             # we now read student name , registration number and code
-            student_name_image = get_warped_image(img, student_name, 600, 100)
-            reg_number_image = get_warped_image(img, registration_number, 600, 100)
+            # student_name_image = get_warped_image(img, student_name, 600, 100)
+            # reg_number_image = get_warped_image(img, registration_number, 600, 100)
             code_image = get_warped_image(img, student_code, 300, 100)
 
-            student_name_text = self.image_matrix_to_string(student_name_image)
-            reg_number_text = self.image_matrix_to_string(reg_number_image)
-            code_image = self.image_matrix_to_string(code_image)
-            print('student name:{}'.format(reg_number_text))
+            # student_name_text = self.image_matrix_to_string(student_name_image)
+            # reg_number_text = self.image_matrix_to_string(reg_number_image)
+            student_code_text = self.image_matrix_to_string(code_image)
+            print('student code:{}'.format(student_code_text))
 
             print("final score: ", score)
-            # cv2.imshow('contours', cont_image)
-            # cv2.waitKey(0)
 
             return {
-                'student_name': student_name_text,
-                'registration_number': reg_number_text,
-                'student_code': code_image,
+                'student_code': student_code_text,
                 'score': score,
+                'sheet_name': self.sheet_instance.sheet_name,
                 'summary': result_summary,
                 'sheet_number': self.correction_index
             }
