@@ -82,14 +82,17 @@ class SheetsCorrection(generics.ListCreateAPIView):
         return Response(data={'results': results}, status=200)
 
 
-@api_view(['POST'])
-def ocr_read(request):
-    image = request.FILES.get('image')
-    im_quiz = Quiz.objects.get(pk=4)
-    mcq_corrector = MCQCorrector(sheet_instance=im_quiz)
-    im_obj = Image(name="to_recognize", image=image, sheet=im_quiz)
-    im_obj.save()
+class ImagesView(generics.ListCreateAPIView):
+    queryset = Image.objects.all()
+    serializer_class = ImageSerializer
 
-    res = mcq_corrector.image_to_string(im_obj.image.path)
+    def post(self, request, *args, **kwargs):
 
-    return Response(data=res)
+        images = request.FILES.getlist('images')
+        im_quiz = Quiz.objects.get(pk=request.data["sheet_id"])
+
+        for file in images:
+            new_im = Image(name="image-{}".format(str(im_quiz)), image=file, sheet=im_quiz)
+            new_im.save()
+
+

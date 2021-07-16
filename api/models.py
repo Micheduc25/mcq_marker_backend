@@ -72,12 +72,14 @@ class Quiz(models.Model):
 
 
 def nameFile(instance, filename):
-    return '/'.join(['images', 'quiz_{}'.format(instance.sheet_id), str(instance.name), filename])
+    return '/'.join(['images', 'sheet_{}'.format(instance.sheet_id), instance.status, str(instance.name)+'-' + filename])
 
 
 class Image(models.Model):
+    status_types = [('pending', 'pending'), ('corrected', 'corrected')]
     name = models.CharField(max_length=255)
     image = models.ImageField(upload_to=nameFile, blank=True, null=True)
     sheet = models.ForeignKey(Quiz, related_name="image", on_delete=models.CASCADE)
+    status = models.CharField(choices=status_types, max_length=50, default='pending')
 
 

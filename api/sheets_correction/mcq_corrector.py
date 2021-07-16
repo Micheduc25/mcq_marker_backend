@@ -347,6 +347,7 @@ class MCQCorrector:
             return {
                 'student_code': student_code_text,
                 'score': score,
+                'total': np.sum(mark_allocation),
                 'sheet_name': self.sheet_instance.sheet_name,
                 'summary': result_summary,
                 'sheet_number': self.correction_index
