@@ -20,3 +20,9 @@ class IsAdminOrOwner(permissions.BasePermission):
     def has_object_permission(self, request, view, obj):
         # we return true if the user is a super user or if he is the creator of the object
         return request.user.is_superuser or obj.creator == request.user
+
+
+class IsAdminOrUser(permissions.BasePermission):
+    def has_object_permission(self, request, view, obj):
+        # we return true if the user is a super user or if he is the creator of the object
+        return request.user.is_superuser or obj.id == request.user.id

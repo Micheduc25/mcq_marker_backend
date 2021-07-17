@@ -1,5 +1,5 @@
 from django.contrib.auth.models import User, Group
-from .models import Quiz, Image
+from .models import Quiz, SheetImage
 from rest_framework import serializers
 
 
@@ -33,6 +33,7 @@ class QuizSerializer(serializers.ModelSerializer):
 class ImageSerializer(serializers.ModelSerializer):
 
     class Meta:
-        model = Image
-        fields = ('id', 'name', 'image', 'sheet')
+        model = SheetImage
+
+        fields = ('id', 'name', 'image', 'sheet', 'status')
         read_only_fields = ('id', 'name', 'sheet')

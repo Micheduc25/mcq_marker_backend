@@ -4,6 +4,9 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 from rest_framework.authtoken.models import Token
 from django_mysql.models import ListCharField, ListTextField
+from datetime import datetime
+import os
+
 
 
 @receiver(post_save, sender=settings.AUTH_USER_MODEL)
@@ -23,6 +26,8 @@ class Quiz(models.Model):
     choices = models.IntegerField(default=4)
     choiceLabels = models.CharField(choices=label_types, max_length=100)
     failMark = models.IntegerField(default=0)
+    pending_images = models.IntegerField(default=0)
+    corrected_images = models.IntegerField(default=0)
 
     # list fields
     correctAnswers = ListCharField(
@@ -63,7 +68,7 @@ class Quiz(models.Model):
 
     # String representation of the quiz object
     def __str__(self):
-        return str(self.course) + str(self.id)
+        return self.sheet_name
 
     # quiz properties that are very useful to us
 
@@ -72,14 +77,16 @@ class Quiz(models.Model):
 
 
 def nameFile(instance, filename):
-    return '/'.join(['images', 'sheet_{}'.format(instance.sheet_id), instance.status, str(instance.name)+'-' + filename])
+    now = datetime.now()
+    ext = '.' + filename.split('.')[-1]
+
+    return os.path.join(settings.MEDIA_ROOT, 'images', 'sheets', 'sheet_{}'.format(instance.sheet_id),
+                        instance.status, now.isoformat() + ext)
 
 
-class Image(models.Model):
+class SheetImage(models.Model):
     status_types = [('pending', 'pending'), ('corrected', 'corrected')]
     name = models.CharField(max_length=255)
     image = models.ImageField(upload_to=nameFile, blank=True, null=True)
     sheet = models.ForeignKey(Quiz, related_name="image", on_delete=models.CASCADE)
     status = models.CharField(choices=status_types, max_length=50, default='pending')
-
-

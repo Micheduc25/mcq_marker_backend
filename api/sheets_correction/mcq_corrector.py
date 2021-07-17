@@ -27,6 +27,9 @@ class MCQCorrector:
                                     '1': 0, '2': 3, '3': 2, '4': 3, '5': 4}
 
         '''This function converts the list of correct answers into a map which matches these values to integer values'''
+    def set_sheet(self, sheet: Quiz):
+        self.sheet_instance = sheet
+        self.correction_index = 0
 
     def get_int_answer_values(self):
 

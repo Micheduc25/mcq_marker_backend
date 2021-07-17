@@ -17,14 +17,15 @@ urlpatterns = [
     # path('users/', views.UserList.as_view()),
     # path('users/<int:pk>/', views.UserDetail.as_view()),
 
-    path('ocr_read/', views.ocr_read),
-
     # quizes endpoints
     path('quizes/', views.QuizList.as_view()),
     path('quizes/<int:pk>', views.QuizDetail.as_view()),
 
     # sheet upload
     path('upload-sheets/', views.SheetsCorrection.as_view()),
+
+    # images endpoint
+    path('images/', views.ImagesList.as_view()),
 
     # auth endpoints
     path('auth-token/', CustomAuthToken.as_view()),
