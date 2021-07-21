@@ -8,7 +8,6 @@ from datetime import datetime
 import os
 
 
-
 @receiver(post_save, sender=settings.AUTH_USER_MODEL)
 def create_auth_token(sender, instance=None, created=False, **kwargs):
     if created:
@@ -42,9 +41,9 @@ class Quiz(models.Model):
         default=['2']
     )
 
-    marksDistribution = ListCharField(
-        base_field=models.CharField(max_length=3),
-        max_length=255,
+    marksDistribution = ListTextField(
+        base_field=models.CharField(max_length=255, blank=True, null=True, default=""),
+
         default=['2']
     )
 

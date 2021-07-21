@@ -1,6 +1,7 @@
 from django.urls import include, path
 from rest_framework import routers
 from api import views
+
 # from rest_framework.authtoken import views as token_views
 
 from .tokens import CustomAuthToken
@@ -23,9 +24,11 @@ urlpatterns = [
 
     # sheet upload
     path('upload-sheets/', views.SheetsCorrection.as_view()),
+    path('batch-correct/', views.SheetsBatchCorrect.as_view()),
 
     # images endpoint
     path('images/', views.ImagesList.as_view()),
+    path('images/pending/', views.PendingSheetsLists.as_view()),
 
     # auth endpoints
     path('auth-token/', CustomAuthToken.as_view()),

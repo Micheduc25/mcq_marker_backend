@@ -62,7 +62,7 @@ class QuizDetail(generics.RetrieveUpdateDestroyAPIView):
 
 
 # this function moves a sheet image which has been corrected from the pending directory to the corrected directory
-def move_corrected_image(image: SheetImage):
+def move_corrected_image(image: SheetImage, sheet:Quiz):
     try:
         filename = image.image.name.split('/')[-1]
         im_path = image.image.path
@@ -77,6 +77,11 @@ def move_corrected_image(image: SheetImage):
         shutil.move(im_path, new_path)
         image.status = 'corrected'
         image.save()
+
+        sheet.pending_images -= 1
+        sheet.corrected_images += 1
+
+        sheet.save()
 
     except FileNotFoundError as err:
         raise exceptions.ValidationError('Could not find the image file {} '.format(err), code=404)
@@ -109,10 +114,7 @@ class SheetsCorrection(generics.ListCreateAPIView):
             try:
                 res = mcq_corrector.correct_sheet(new_im.image.path)
                 results.append(res)
-                move_corrected_image(new_im)
-
-                im_quiz.pending_images -= 1
-                im_quiz.corrected_images += 1
+                move_corrected_image(new_im, im_quiz)
 
             except Exception as err:
                 raise exceptions.ValidationError('One or more of the sheets is not well formatted ===> {}'.format(err),
@@ -121,6 +123,7 @@ class SheetsCorrection(generics.ListCreateAPIView):
         return Response(data={'results': results}, status=200)
 
 
+# API view to upload images to be saved or to get all images belonging to a creator
 class ImagesList(generics.ListCreateAPIView):
     # queryset = Image.objects.all()
     serializer_class = ImageSerializer
@@ -148,6 +151,7 @@ class ImagesList(generics.ListCreateAPIView):
             im_quiz.pending_images += 1
             imagelist.append(new_im)
 
+        im_quiz.save()
         res = self.serializer_class(instance=imagelist, many=True, context={"request": request})
         return Response(res.data)
 
@@ -160,7 +164,7 @@ class SheetsBatchCorrect(generics.GenericAPIView):
 
     def post(self, request):
         sheet_ids = request.data['sheets']
-        sheets = Quiz.object.filter(pk__in=sheet_ids)
+        sheets = Quiz.objects.filter(pk__in=sheet_ids)
         corrector = MCQCorrector(Quiz())
 
         final_results = []
@@ -169,17 +173,14 @@ class SheetsBatchCorrect(generics.GenericAPIView):
         for sheet in sheets:
             corrector.set_sheet(sheet)
             pending_images = SheetImage.objects.filter(Q(sheet_id=sheet.id) & Q(status='pending'))
-            final_results.append({'sheet_id': sheet.id, 'sheet_name': sheet.name, 'results': [], 'errors': []})
+            final_results.append({'sheet_id': sheet.id, 'sheet_name': sheet.sheet_name, 'results': [], 'errors': []})
 
             for image in pending_images:
                 try:
                     res = corrector.correct_sheet(image.image.path)
                     final_results[sheet_index]['results'].append(res)
 
-                    move_corrected_image(image)
-                    sheet.pending_images -= 1
-                    sheet.corrected_images += 1
-                    sheet.save()
+                    move_corrected_image(image, sheet)
 
                 except Exception as err:
                     final_results[sheet_index]['errors'].append(str(err))
@@ -190,5 +191,24 @@ class SheetsBatchCorrect(generics.GenericAPIView):
         return Response(final_results)
 
 
-# class PendingSheetsLists(generics.ListAPIView):
-#
+class PendingSheetsLists(generics.ListAPIView):
+    serializer_class = ImageSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+
+        sheet_id = self.request.query_params['sheet_id']
+        try:
+            return SheetImage.objects.filter(Q(sheet_id=sheet_id) & Q(status='pending'))
+
+        except SheetImage.DoesNotExist:
+            raise exceptions.ValidationError("could not find required images", code=404)
+
+        except Quiz.DoesNotExist:
+            raise exceptions.ValidationError("sheet for these images not found", code=404)
+
+        except Exception as err:
+            raise exceptions.ValidationError("{}".format(err), code=500)
+
+
+
