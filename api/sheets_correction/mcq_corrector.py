@@ -6,10 +6,13 @@ Created on Wed Feb 24 12:21:44 2021
 """
 
 import cv2
+import imutils
 import numpy as np
 from .utils import *
 from api.models import Quiz
 import pytesseract
+from .scansheet import scanSheet
+import os
 
 
 class MCQCorrector:
@@ -102,11 +105,24 @@ class MCQCorrector:
         else:
             answers1 = correct_answers
 
-        # read the image from the computer
-
+        # read the image from the given path
         img = cv2.imread(image_path)
+
+        # we scan the image to get only the sheet
+        imname = self.sheet_instance.sheet_name+str(self.correction_index)
+        scanSheet(img, imname)
+
+        abs_path = os.path.abspath('.')
+        if os.path.exists(os.path.join(abs_path, imname+'.jpg')):
+            print("path exists!===>")
+
+            img = cv2.imread(rf"{os.path.join(abs_path, imname+'.jpg')}")
+            os.unlink(os.path.join(abs_path, imname+'.jpg'))
+        else:
+            raise Exception("path to scanned image does not exist!")
+
         # resize the image
-        img = cv2.resize(img, (self.image_width, self.image_height))
+        # img = cv2.resize(img, (self.image_width, self.image_height))
 
         img_contours = img.copy()
         # image with required contours
@@ -115,13 +131,14 @@ class MCQCorrector:
         # Image pre-processing ##########################################
 
         # convert image to grayscale
-        img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        # img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
         # add gaussian blur to grayscale image
-        img_blur = cv2.GaussianBlur(img_gray, (5, 5), 1)
+        # img_blur = cv2.GaussianBlur(img_gray, (5, 5), 1)
 
         # edge detection
-        img_canny = cv2.Canny(img_blur, 10, 50)
+        img_canny = cv2.Canny(img, 10, 50)
+
 
         # ############################################################
 
@@ -158,7 +175,7 @@ class MCQCorrector:
                 cv2.drawContours(cont_image, [biggest_contour2], -1, (0, 255, 255), 6)
 
             cv2.drawContours(cont_image, [student_code], -1, (0, 255, 255), 5)
-            # cv2.imshow('images', cont_image)
+            # cv2.imshow("Scanned", imutils.resize(cont_image, height=650))
             # cv2.waitKey(0)
 
             # we reorder the points of the big rectangles and the code and student name rectangles
@@ -182,13 +199,16 @@ class MCQCorrector:
             # We now apply Threshold to the warped images
 
             # # for first big rectangle
-            warp_image_gray = cv2.cvtColor(warp_image_colored, cv2.COLOR_BGR2GRAY)
-            img_thresh = cv2.threshold(warp_image_gray, 180, 255, cv2.THRESH_BINARY_INV)[1]
+            # warp_image_gray =cv2.cvtColor(warp_image_colored, cv2.COLOR_BGR2GRAY)
+            img_thresh = cv2.threshold(warp_image_colored, 200, 255, cv2.THRESH_BINARY_INV)[1]
+
+            cv2.imshow("Scanned", imutils.resize(img_thresh, height=650))
+            cv2.waitKey(0)
 
             # for second big rectangle
             if biggest_contour2 is not None:
-                warp_image_gray2 = cv2.cvtColor(warp_image_colored2, cv2.COLOR_BGR2GRAY)
-                img_thresh2 = cv2.threshold(warp_image_gray2, 180, 255, cv2.THRESH_BINARY_INV)[1]
+                # warp_image_gray2 = cv2.cvtColor(warp_image_colored2, cv2.COLOR_BGR2GRAY)
+                img_thresh2 = cv2.threshold(warp_image_colored2, 200, 255, cv2.THRESH_BINARY_INV)[1]
 
             # we split the two biggest rectangles into individual bubbles
             boxes1 = splitBoxes(img_thresh, rows=body_rows_1, cols=body_cols_1)
@@ -207,7 +227,9 @@ class MCQCorrector:
             count_r = 0
 
             for box in boxes1:
+
                 pixel_values[count_r][count_c] = np.count_nonzero(box)
+
                 count_c += 1
                 if count_c == body_cols_1:
                     count_r += 1
@@ -218,22 +240,27 @@ class MCQCorrector:
 
             if biggest_contour2 is not None:
                 for box in boxes2:
+
                     pixel_values2[count_r][count_c] = np.count_nonzero(box)
                     count_c += 1
                     if count_c == body_cols_2:
                         count_r += 1
                         count_c = 0
 
+            # print(pixel_values)
             # we find the box with the highest pixel value for each row(question) and store its index in an array
 
             given_answers_indexes1 = []
+
+            # we set the pixel treshold value for correct shaded boxes
+            pixel_treshold = 4520  # TODO adjust threshold value later
 
             # we pass through each row and check for the boxes with pixel values above a certain threshold
             # (1800 in this case)
             for row in pixel_values:
                 current_indexes = []
                 for i in range(0, len(row)):
-                    if row[i] > 1800:  # TODO adjust threshold value later
+                    if row[i] >= pixel_treshold:
                         current_indexes.append(i)
                 # given_index = np.where(row == np.amax(row))
                 given_answers_indexes1.append(current_indexes)
@@ -246,7 +273,7 @@ class MCQCorrector:
                 for row in pixel_values2:
                     current_indexes = []
                     for i in range(0, len(row)):
-                        if row[i] > 1800:  # TODO adjust threshold value later
+                        if row[i] >= pixel_treshold:
                             current_indexes.append(i)
                     # given_index = np.where(row == np.amax(row))
                     given_answers_indexes2.append(current_indexes)
@@ -282,8 +309,7 @@ class MCQCorrector:
                 if points_percentage > 0:
                     points_total_percentage = 0.0
                     for pc in mark_distribution[i].values():
-                        if i == 1:
-                            print(pc)
+
                         points_total_percentage += float(pc)
 
                     points_frac = points_percentage / points_total_percentage
@@ -348,7 +374,7 @@ class MCQCorrector:
             print("final score: ", score)
 
             return {
-                'student_code': student_code_text,
+                'student_code': ''.join([char for char in student_code_text if str.isalnum(char)]),
                 'score': score,
                 'total': np.sum(mark_allocation),
                 'sheet_name': self.sheet_instance.sheet_name,
@@ -360,5 +386,6 @@ class MCQCorrector:
 
     @staticmethod
     def image_matrix_to_string(image_matrix):
-        im_rgb = cv2.cvtColor(image_matrix, cv2.COLOR_BGR2RGB)
-        return pytesseract.image_to_string(im_rgb)
+        custom_config = r'--oem 3 --psm 6'
+        # im_rgb = cv2.cvtColor(image_matrix, cv2.COLOR_BGR2RGB)
+        return pytesseract.image_to_string(image_matrix, config=custom_config)
