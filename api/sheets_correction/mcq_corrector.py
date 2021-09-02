@@ -114,8 +114,6 @@ class MCQCorrector:
 
         abs_path = os.path.abspath('.')
         if os.path.exists(os.path.join(abs_path, imname+'.jpg')):
-            print("path exists!===>")
-
             img = cv2.imread(rf"{os.path.join(abs_path, imname+'.jpg')}")
             os.unlink(os.path.join(abs_path, imname+'.jpg'))
         else:
@@ -202,8 +200,8 @@ class MCQCorrector:
             # warp_image_gray =cv2.cvtColor(warp_image_colored, cv2.COLOR_BGR2GRAY)
             img_thresh = cv2.threshold(warp_image_colored, 200, 255, cv2.THRESH_BINARY_INV)[1]
 
-            cv2.imshow("Scanned", imutils.resize(img_thresh, height=650))
-            cv2.waitKey(0)
+            # cv2.imshow("Scanned", imutils.resize(img_thresh, height=650))
+            # cv2.waitKey(0)
 
             # for second big rectangle
             if biggest_contour2 is not None:
@@ -252,15 +250,15 @@ class MCQCorrector:
 
             given_answers_indexes1 = []
 
-            # we set the pixel treshold value for correct shaded boxes
-            pixel_treshold = 4520  # TODO adjust threshold value later
+            # we set the pixel threshold value for correct shaded boxes
+            pixel_threshold = 4520  # TODO adjust threshold value later
 
             # we pass through each row and check for the boxes with pixel values above a certain threshold
             # (1800 in this case)
             for row in pixel_values:
                 current_indexes = []
                 for i in range(0, len(row)):
-                    if row[i] >= pixel_treshold:
+                    if row[i] >= pixel_threshold:
                         current_indexes.append(i)
                 # given_index = np.where(row == np.amax(row))
                 given_answers_indexes1.append(current_indexes)
@@ -273,7 +271,7 @@ class MCQCorrector:
                 for row in pixel_values2:
                     current_indexes = []
                     for i in range(0, len(row)):
-                        if row[i] >= pixel_treshold:
+                        if row[i] >= pixel_threshold:
                             current_indexes.append(i)
                     # given_index = np.where(row == np.amax(row))
                     given_answers_indexes2.append(current_indexes)
@@ -295,7 +293,7 @@ class MCQCorrector:
                 result_summary[i] = {'correct_choices': [], 'wrong_choices': [], 'percentage_pass': 0.0, 'mark': 0.0}
                 # we evaluate the total % of the points for the given question which has been answered correctly
                 for ans in given_answers_indexes1[i]:
-                    if ans in answers1[i]:
+                    if ans in answers1[i]: 
                         points_percentage += float(mark_distribution[i][str(ans)])
                         result_summary[i]["correct_choices"].append(self.get_answer_label_from_number(ans))
                     else:

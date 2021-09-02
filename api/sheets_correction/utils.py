@@ -40,7 +40,7 @@ def rectContours(contours):
 # point closer to origin(0,0) is first point, and point further from origin is last point.
 
 def reorder(points):
-    # we reshape our points in so as to get a 4 by 2 array i.e 4 points with two co-ordinates each
+    # we reshape our points so as to get a 4 by 2 array i.e 4 points with two co-ordinates each
     points = points.reshape((4, 2))
 
     # we create a new array in which we will put the reordered points

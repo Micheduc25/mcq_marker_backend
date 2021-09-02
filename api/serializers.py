@@ -1,5 +1,5 @@
 from django.contrib.auth.models import User, Group
-from .models import Quiz, SheetImage
+from .models import Quiz, SheetImage, Student, Question
 from rest_framework import serializers
 
 
@@ -37,3 +37,26 @@ class ImageSerializer(serializers.ModelSerializer):
 
         fields = ('id', 'name', 'image', 'sheet', 'status')
         read_only_fields = ('id', 'name', 'sheet')
+
+
+class StudentSerializer(serializers.ModelSerializer):
+    sheet_id = serializers.ReadOnlyField(source='sheet.id')
+
+    class Meta:
+        model = Student
+        fields = '__all__'
+        include = ['sheet_id']
+
+
+class QuestionSerializer(serializers.ModelSerializer):
+
+    sheet_id = serializers.ReadOnlyField(source='sheet.id')
+    correct_ans = serializers.ListField(child=serializers.CharField())
+    wrong_ans = serializers.ListField(child=serializers.CharField())
+    mark_distribution = serializers.ListField(child=serializers.CharField())
+    dis = serializers.JSONField()
+
+    class Meta:
+        model = Question
+        fields = '__all__'
+        include = ['sheet_id']

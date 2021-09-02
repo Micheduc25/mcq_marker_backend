@@ -89,3 +89,58 @@ class SheetImage(models.Model):
     image = models.ImageField(upload_to=nameFile, blank=True, null=True)
     sheet = models.ForeignKey(Quiz, related_name="image", on_delete=models.CASCADE)
     status = models.CharField(choices=status_types, max_length=50, default='pending')
+
+
+class Question(models.Model):
+    sheet = models.ForeignKey(Quiz, related_name='question', on_delete=models.CASCADE)
+    q_number = models.IntegerField(default=1)  # the number of the question on the sheet
+
+    correct_ans = ListCharField(
+        max_length=255,
+        base_field=models.CharField(max_length=255, default="")  # the correct answers of the question
+    )
+
+    wrong_ans = ListCharField(
+        max_length=255,
+        base_field=models.CharField(max_length=255, default="")  # the wrong answers of the question
+    )
+
+    mark_distribution = ListCharField(
+        max_length=255,
+        base_field=models.CharField(max_length=100, blank=True, null=True, default="")  # correct answer percentages
+    )
+
+    total_mark = models.DecimalField(max_digits=6, decimal_places=2)  # the total mark for the question
+    remark = models.TextField()  # any remark about the question
+
+
+class Student(models.Model):
+    code = models.CharField(max_length=100, primary_key=True)
+    sheet = models.ForeignKey(Quiz, related_name='student', on_delete=models.CASCADE)
+    name = models.CharField(max_length=255)
+    email = models.EmailField()
+
+
+class StudentQuestions(models.Model):
+    student = models.ForeignKey(Student, on_delete=models.CASCADE)
+    question = models.ForeignKey(Question, on_delete=models.CASCADE)
+
+    answered_correct = ListCharField(
+        max_length=255,
+        base_field=models.CharField(max_length=100, default="")  # the answers which were correctly chosen
+    )
+
+    answered_wrong = ListCharField(
+        max_length=255,
+        base_field=models.CharField(max_length=100, default="")  # the answers which were wrongly chosen
+    )
+
+    percentage_pass = models.DecimalField(max_digits=3, decimal_places=2)  # percentage of mark obtained
+    mark = models.DecimalField(max_digits=6, decimal_places=2)  # the total mark obtained for the question
+
+
+class Results(models.Model):
+    sheet = models.ForeignKey(Quiz, on_delete=models.CASCADE)
+    student = models.ForeignKey(Student, on_delete=models.CASCADE)
+    mark = models.DecimalField(max_digits=6, decimal_places=2)
+    total = models.DecimalField(max_digits=6, decimal_places=2)
