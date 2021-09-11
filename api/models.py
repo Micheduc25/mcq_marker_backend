@@ -28,31 +28,6 @@ class Quiz(models.Model):
     pending_images = models.IntegerField(default=0)
     corrected_images = models.IntegerField(default=0)
 
-    # list fields
-    correctAnswers = ListCharField(
-        base_field=models.CharField(max_length=3),
-        max_length=255,
-        default=['1']
-    )
-
-    marksAllocation = ListCharField(
-        base_field=models.CharField(max_length=3),
-        max_length=255,
-        default=['2']
-    )
-
-    marksDistribution = ListTextField(
-        base_field=models.CharField(max_length=255, blank=True, null=True, default=""),
-
-        default=['2']
-    )
-
-    remarks = ListTextField(
-        base_field=models.CharField(max_length=255, blank=True, null=True, default=""),
-
-        default=['courage']
-    )
-
     creator = models.ForeignKey('auth.User', related_name='quizes', on_delete=models.CASCADE)
 
     # less important nullable fields
@@ -92,7 +67,7 @@ class SheetImage(models.Model):
 
 
 class Question(models.Model):
-    sheet = models.ForeignKey(Quiz, related_name='question', on_delete=models.CASCADE)
+    sheet = models.ForeignKey(Quiz, related_name='question', on_delete=models.CASCADE, blank=True)
     q_number = models.IntegerField(default=1)  # the number of the question on the sheet
 
     correct_ans = ListCharField(
@@ -111,14 +86,15 @@ class Question(models.Model):
     )
 
     total_mark = models.DecimalField(max_digits=6, decimal_places=2)  # the total mark for the question
-    remark = models.TextField()  # any remark about the question
+    remark = models.TextField(blank=True, null=True)  # any remark about the question
 
 
 class Student(models.Model):
     code = models.CharField(max_length=100, primary_key=True)
-    sheet = models.ForeignKey(Quiz, related_name='student', on_delete=models.CASCADE)
+    sheet = models.ForeignKey(Quiz, related_name='students', on_delete=models.CASCADE, blank=True)
     name = models.CharField(max_length=255)
-    email = models.EmailField()
+    email = models.EmailField(null=True, blank=True)
+    date_joined = models.DateTimeField(auto_now_add=True)
 
 
 class StudentQuestions(models.Model):

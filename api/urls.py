@@ -9,6 +9,7 @@ from .tokens import CustomAuthToken
 
 router = routers.DefaultRouter()
 router.register(r'users', views.UserViewSet)
+router.register(r'students', views.StudentViewSet, basename='students')
 
 
 app_name = 'api'

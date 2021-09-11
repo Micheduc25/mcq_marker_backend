@@ -2,8 +2,8 @@ from django.contrib.auth.models import User
 from rest_framework import viewsets, exceptions
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
-from api.serializers import UserSerializer, QuizSerializer, ImageSerializer
-from .models import Quiz, SheetImage
+from api.serializers import UserSerializer, QuizSerializer, ImageSerializer, StudentSerializer
+from .models import Quiz, SheetImage, Question, Student, StudentQuestions
 from rest_framework import generics, permissions, mixins
 from .permissions import IsOwnerOrReadOnly, IsAdminOrOwner, IsAdminOrUser
 from rest_framework.authtoken.models import Token
@@ -13,6 +13,7 @@ from django.conf import settings
 from django.db.models import Q
 import os
 import shutil
+from collections import namedtuple
 
 
 # for user in User.objects.all():
@@ -28,6 +29,24 @@ class UserViewSet(viewsets.ModelViewSet):
     serializer_class = UserSerializer
 
     permission_classes = [IsAdminOrUser]
+
+
+class StudentViewSet(viewsets.ModelViewSet):
+    serializer_class = StudentSerializer
+
+    permission_classes = [IsAdminOrUser]
+
+    def perform_create(self, serializer):
+        if serializer.is_valid(raise_exception=True):
+            try:
+                sheet = Quiz.objects.get(pk=self.request.GET.get('sheet_id'))
+                serializer.save(sheet=sheet)
+
+            except Quiz.DoesNotExit:
+                raise exceptions.ValidationError("Sheet not found", code=404)
+
+    def get_queryset(self):
+        return Student.objects.filter(sheet_id=self.request.GET.get('sheet_id')).order_by('name')
 
 
 class CurrentUserView(generics.GenericAPIView):
@@ -62,7 +81,7 @@ class QuizDetail(generics.RetrieveUpdateDestroyAPIView):
 
 
 # this function moves a sheet image which has been corrected from the pending directory to the corrected directory
-def move_corrected_image(image: SheetImage, sheet:Quiz):
+def move_corrected_image(image: SheetImage, sheet: Quiz):
     try:
         filename = image.image.name.split('/')[-1]
         im_path = image.image.path
@@ -99,9 +118,10 @@ class SheetsCorrection(generics.ListCreateAPIView):
 
         images = request.FILES.getlist('images')
         im_quiz = Quiz.objects.get(pk=request.data["sheet_id"])
+        sheet_questions = Question.objects.filter(sheet_id=im_quiz.id)
 
         # instantiate mcq corrector
-        mcq_corrector = MCQCorrector(sheet_instance=im_quiz)
+        mcq_corrector = MCQCorrector(sheet_instance=im_quiz, sheet_questions=sheet_questions)
 
         results = []
 
