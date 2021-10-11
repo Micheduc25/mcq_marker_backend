@@ -85,7 +85,7 @@ class Question(models.Model):
         base_field=models.CharField(max_length=100, blank=True, null=True, default="")  # correct answer percentages
     )
 
-    total_mark = models.DecimalField(max_digits=6, decimal_places=2)  # the total mark for the question
+    total_mark = models.FloatField()  # the total mark for the question
     remark = models.TextField(blank=True, null=True)  # any remark about the question
 
 
@@ -111,12 +111,15 @@ class StudentQuestions(models.Model):
         base_field=models.CharField(max_length=100, default="")  # the answers which were wrongly chosen
     )
 
-    percentage_pass = models.DecimalField(max_digits=3, decimal_places=2)  # percentage of mark obtained
-    mark = models.DecimalField(max_digits=6, decimal_places=2)  # the total mark obtained for the question
+    percentage_pass = models.FloatField()  # percentage of mark obtained
+    mark = models.FloatField()  # the total mark obtained for the question
+    session = models.IntegerField(default=1)  # the exam session for which a question was answered
 
 
 class Results(models.Model):
     sheet = models.ForeignKey(Quiz, on_delete=models.CASCADE)
     student = models.ForeignKey(Student, on_delete=models.CASCADE)
-    mark = models.DecimalField(max_digits=6, decimal_places=2)
-    total = models.DecimalField(max_digits=6, decimal_places=2)
+    mark = models.FloatField()
+    total = models.FloatField()
+    correction_date = models.DateTimeField(auto_now_add=True)
+    session = models.IntegerField(default=1)  # the exam session for which the results were generated

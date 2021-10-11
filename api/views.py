@@ -2,15 +2,15 @@ from django.contrib.auth.models import User
 from rest_framework import viewsets, exceptions
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
-from api.serializers import UserSerializer, QuizSerializer, ImageSerializer, StudentSerializer
-from .models import Quiz, SheetImage, Question, Student, StudentQuestions
+from api.serializers import UserSerializer, QuizSerializer, ImageSerializer, StudentSerializer, ResultsSerializer, StudentQuestionsSerializer
+from .models import Quiz, SheetImage, Question, Student, StudentQuestions, Results
 from rest_framework import generics, permissions, mixins
 from .permissions import IsOwnerOrReadOnly, IsAdminOrOwner, IsAdminOrUser
 from rest_framework.authtoken.models import Token
 from .sheets_correction.mcq_corrector import MCQCorrector
 from django.utils.timezone import now
 from django.conf import settings
-from django.db.models import Q
+from django.db.models import Q, Max
 import os
 import shutil
 from collections import namedtuple
@@ -115,13 +115,22 @@ class SheetsCorrection(generics.ListCreateAPIView):
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
 
     def post(self, request, *args, **kwargs):
-
+        # we collect the image files and find the sheet they correspond to
         images = request.FILES.getlist('images')
         im_quiz = Quiz.objects.get(pk=request.data["sheet_id"])
+
+        # we attribute a session to this correction batch
+        session = 1
+
+        sheet_results = Results.objects.filter(sheet_id=im_quiz.id)
+        if len(sheet_results) > 0:
+            latest_session = sheet_results.aggregate(Max("session"))['session__max']
+            session = latest_session + 1
+
         sheet_questions = Question.objects.filter(sheet_id=im_quiz.id)
 
         # instantiate mcq corrector
-        mcq_corrector = MCQCorrector(sheet_instance=im_quiz, sheet_questions=sheet_questions)
+        mcq_corrector = MCQCorrector(sheet_instance=im_quiz, sheet_questions=sheet_questions, session=session)
 
         results = []
 
@@ -137,7 +146,7 @@ class SheetsCorrection(generics.ListCreateAPIView):
                 move_corrected_image(new_im, im_quiz)
 
             except Exception as err:
-                raise exceptions.ValidationError('One or more of the sheets is not well formatted ===> {}'.format(err),
+                raise exceptions.ValidationError('{}'.format(err),
                                                  code=400)
 
         return Response(data={'results': results}, status=200)
@@ -229,6 +238,67 @@ class PendingSheetsLists(generics.ListAPIView):
 
         except Exception as err:
             raise exceptions.ValidationError("{}".format(err), code=500)
+
+
+class SheetResultsList(generics.ListAPIView):
+    serializer_class = ResultsSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        sheet_id = self.request.query_params['sheet_id']
+        # session = self.request.query_params['session']
+        # print(f"session===>{session}")
+        # Q(session=session) &
+
+        try:
+            return Results.objects.filter(Q(sheet_id=sheet_id) &
+                                          Q(sheet__creator_id=self.request.user.id))
+
+        except Results.DoesNotExist:
+            raise exceptions.ValidationError("could not find any corresponding results", code=404)
+        except Exception as err:
+            raise exceptions.ValidationError("{}".format(err), code=500)
+
+
+# view to obtain the detailed results for a student
+class ResultDetailList(generics.ListAPIView):
+    serializer_class = StudentQuestionsSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        sheet_id = self.request.query_params['sheet_id']
+        student_code = self.request.query_params['code']
+        session = self.request.query_params['session']
+
+        try:
+            return StudentQuestions.objects.filter(Q(student__sheet_id=sheet_id)
+                                                   & Q(student__code=student_code)
+                                                   & Q(session=session)
+                                                   )
+
+        except StudentQuestions.DoesNotExist:
+            raise exceptions.ValidationError("could not find any corresponding results", code=404)
+        except Exception as err:
+            raise exceptions.ValidationError("{}".format(err), code=500)
+
+
+class StudentResultsList(generics.ListAPIView):
+    serializer_class = StudentQuestionsSerializer
+
+    def get_queryset(self):
+        sheet_id = self.request.query_params['sheet_id']
+
+        session = self.request.query_params['session']
+        # print(f"session is ====> {session}")
+
+        try:
+            return StudentQuestions.objects.filter(Q(student__sheet_id=sheet_id) & Q(session=session))
+
+        except StudentQuestions.DoesNotExist:
+            raise exceptions.ValidationError("could not find any corresponding results", code=404)
+        except Exception as err:
+            raise exceptions.ValidationError("{}".format(err), code=500)
+
 
 
 

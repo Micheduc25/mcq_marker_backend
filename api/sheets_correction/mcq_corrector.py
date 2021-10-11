@@ -21,6 +21,7 @@ class MCQCorrector:
             self,
             sheet_instance: Quiz,
             sheet_questions: [Question],
+            session: int,
             image_width=700,
             image_height=900, ):
         self.sheet_instance = sheet_instance
@@ -28,6 +29,7 @@ class MCQCorrector:
         self.image_width = image_width
         self.image_height = image_height
         self.correction_index = 0  # represents the number of sheets which have been corrected
+        self.session = session
 
         self.correspondence_dict = {'A': 0, 'B': 1, 'C': 2, 'D': 3, 'E': 4, 'i': 0, 'ii': 1, 'iii': 2, 'iv': 3, 'v': 4,
                                     '1': 0, '2': 3, '3': 2, '4': 3, '5': 4}
@@ -187,7 +189,9 @@ class MCQCorrector:
                 img_thresh2 = cv2.threshold(warp_image_colored2, 200, 255, cv2.THRESH_BINARY_INV)[1]
 
             # we now read student code ##########################################################3
-            code_image = get_warped_image(img, student_code, 300, 100)
+            code_image = get_warped_image(img, student_code, 500, 240)
+            # cv2.imshow('code', code_image)
+            # cv2.waitKey(0)
 
             student_code_text = self.image_matrix_to_string(code_image)
             final_code = ''.join([char for char in student_code_text if str.isalnum(char)])
@@ -284,7 +288,7 @@ class MCQCorrector:
                         if ans in self.get_int_answer_values(self.sheet_questions[i]):
                             corct_ans = self.sheet_questions[i].correct_ans
                             ans_index = corct_ans.index(self.get_answer_label_from_number(ans))
-                            points_percentage += self.sheet_questions[i].mark_distribution[ans_index]
+                            points_percentage += float(self.sheet_questions[i].mark_distribution[ans_index])
                             result_summary[i]["correct_choices"].append(self.get_answer_label_from_number(ans))
                         else:
                             points_percentage = 0.0
@@ -314,7 +318,9 @@ class MCQCorrector:
                                                          answered_correct=result_summary[i]["correct_choices"],
                                                          answered_wrong=result_summary[i]["wrong_choices"],
                                                          percentage_pass=points_percentage,
-                                                         mark=final_question_points)
+                                                         mark=final_question_points,
+                                                         session=self.session
+                                                         )
 
                     question_response.save()
 
@@ -329,7 +335,7 @@ class MCQCorrector:
                             if ans in self.get_int_answer_values(self.sheet_questions[25 + i]):
                                 corct_ans = self.sheet_questions[25 + i].correct_ans
                                 ans_index = corct_ans.index(self.get_answer_label_from_number(ans))
-                                points_percentage += self.sheet_questions[25 + i].mark_distribution[ans_index]
+                                points_percentage += float(self.sheet_questions[25 + i].mark_distribution[ans_index])
                                 result_summary[25 + i]["correct_choices"].append(self.get_answer_label_from_number(ans))
                             else:
                                 points_percentage = 0.0
@@ -356,7 +362,8 @@ class MCQCorrector:
                                                              answered_correct=result_summary[25+i]["correct_choices"],
                                                              answered_wrong=result_summary[25+i]["wrong_choices"],
                                                              percentage_pass=points_percentage,
-                                                             mark=final_question_points)
+                                                             mark=final_question_points,
+                                                             session=self.session)
 
                         question_response.save()
 
@@ -373,11 +380,14 @@ class MCQCorrector:
                 print("final score: ", score)
                 questions_total = np.sum([q.total_mark for q in self.sheet_questions])
 
-                final_result = Results(sheet=self.sheet_instance, student=student, mark=score, total=questions_total)
+                final_result = Results(sheet=self.sheet_instance, student=student, mark=score, total=questions_total,
+                                       session=self.session)
                 final_result.save()
 
                 return {
                     'student_code': final_code,
+                    'student': student,
+                    'session': self.session,
                     'score': score,
                     'total': questions_total,
                     'sheet_name': self.sheet_instance.sheet_name,

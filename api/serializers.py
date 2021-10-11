@@ -1,5 +1,5 @@
 from django.contrib.auth.models import User, Group
-from .models import Quiz, SheetImage, Student, Question
+from .models import Quiz, SheetImage, Student, Question, Results, StudentQuestions
 from rest_framework import serializers
 from django.db.models.query import QuerySet
 
@@ -118,5 +118,26 @@ class StudentSerializer(serializers.ModelSerializer):
         model = Student
         fields = '__all__'
         include = ['sheet']
+
+
+class ResultsSerializer(serializers.ModelSerializer):
+    sheet = serializers.ReadOnlyField(source='sheet.sheet_name')
+    student = StudentSerializer()
+
+    class Meta:
+        model = Results
+        fields = '__all__'
+        include = ['sheet', 'student']
+
+
+class StudentQuestionsSerializer (serializers.ModelSerializer):
+    student = StudentSerializer()
+    answered_correct = serializers.ListField(child=serializers.CharField())
+    answered_wrong = serializers.ListField(child=serializers.CharField())
+
+    class Meta:
+        model = StudentQuestions
+        fields = '__all__'
+        include = ['student']
 
 

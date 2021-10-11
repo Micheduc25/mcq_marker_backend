@@ -31,6 +31,11 @@ urlpatterns = [
     path('images/', views.ImagesList.as_view()),
     path('images/pending/', views.PendingSheetsLists.as_view()),
 
+    # results endpoints
+    path('results/', views.SheetResultsList.as_view()),
+    path('student-results/', views.ResultDetailList.as_view()),
+
+
     # auth endpoints
     path('auth-token/', CustomAuthToken.as_view()),
     path('me/', views.CurrentUserView.as_view()),
